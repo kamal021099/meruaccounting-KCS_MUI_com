@@ -1,9 +1,18 @@
 import mongoose from "mongoose";
 
-const taskSchema = new mongoose.Schema(
+const subtaskSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     employees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  },
+
+  { timestamps: true }
+);
+
+const taskSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    subTasks: [subtaskSchema],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }

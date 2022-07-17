@@ -1,72 +1,39 @@
 /* eslint-disable consistent-return */
-import React, { useContext, useRef, useEffect, useState } from "react";
-import {
-  Paper,
-  Autocomplete,
-  Typography,
-  CircularProgress,
-} from "@mui/material";
+import React, { useContext, useEffect, useState, useRef } from "react";
+import { Paper, Typography, CircularProgress } from "@mui/material";
+import { LoadingButton, TreeItem, TreeView } from "@mui/lab";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { makeStyles } from "@mui/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
-import TreeView from "@mui/lab/TreeView";
-import TreeItem from "@mui/lab/TreeItem";
-import { useSnackbar } from "notistack";
-import { LoadingButton } from "@mui/lab";
-import { capitalize } from "../../_helpers/Capitailze";
-import { lowerCase } from "src/_helpers/LowerCase";
-import TaskMain from "./TaskMain";
-
-// apis and contexts
-import { getTaskDetails, getTasks } from "src/api/task api/tasks.js";
-import { TasksContext } from "src/contexts/tasksContext";
+import SearchBar from "../SearchBar";
 import axios from "axios";
-
-//----------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 const useStyles = makeStyles((theme) => ({
   root: {},
-  treeItem: {
-    margin: "0",
-    fontWeight: "700",
-    lineHeight: "1.5555555555555556",
-    fontSize: "1.0625=rem",
-    fontFamily: "Public Sans,sans-serif",
-    textAlign: "left",
-    width: "100%",
-    display: "block",
-  },
 }));
 
-export default function TaskSidebar() {
+export default function Sidebar() {
   const classes = useStyles();
-  const [newTaskValue, setnewTaskValue] = useState();
-  const [newTaskError, setnewTaskError] = useState(false);
-  const [loaderAddTask, setLoaderAddTask] = useState(false);
-  const [selected, setSelected] = React.useState([]);
-  const inputRef = useRef("");
-  const autocomRef = useRef("");
-  const sidebarref = useRef("");
-  const clientref = useRef("");
-  const { enqueueSnackbar } = useSnackbar();
+  const [taskList, setTaskList] = useState([]);
 
-  const { tasks, dispatchGetTask, dispatchGetTaskDetails } =
-    useContext(TasksContext);
+  // fetch tasks
+  useEffect(() => {
+    axios
+      .get(`/task`)
+      .then((result) => {
+        console.log(result);
+        setTaskList(result?.data?.data);
 
-  const handleSelect = (event, nodeIds) => {
-    setSelected(nodeIds);
-  };
-
-  const handleSearch = (e, value) => {
-    let index = e.target.dataset.optionIndex;
-    const task = tasks.tasks[index];
-
-    setSelected((oldSelected) => [`${task?._id}`]);
-    console.log(task);
-    if (task !== undefined) {
-      document.getElementById(task?._id).scrollIntoView();
-      getTaskDetails(dispatchGetTaskDetails, task);
-    }
-  };
+        return result;
+      })
+      .catch((error) => {
+        console.error(error);
+        setTaskList([]);
+        return Promise.reject(error);
+      });
+  }, []);
 
   return (
     <Box
@@ -96,21 +63,13 @@ export default function TaskSidebar() {
         <Box
           sx={{ display: "flex", flexDirection: "row", alignItems: "center" }}
         >
-          <Autocomplete
-            disablePortal
-            onChange={(e, value) => handleSearch(e, value)}
-            id="combo-box-demo"
-            options={tasks.tasks.map((task) => {
-              return task.name;
-            })}
-            sx={{ width: 300, m: 0.5 }}
-            renderInput={(params) => (
-              <TextField {...params} label="Search Tasks" />
-            )}
+          <SearchBar
+            handleSearch={handleSearch}
+            label="Search Project"
+            options={projectList}
           />
         </Box>
-
-        {tasks.loader && (
+        {clientDetails?.client?.loader && (
           <Box
             sx={{
               display: "flex",
@@ -123,10 +82,9 @@ export default function TaskSidebar() {
           </Box>
         )}
 
-        {/* clients list flex container */}
-        {!tasks.loader && (
+        {/* clients and project tree view flex container */}
+        {!clientDetails?.loader && (
           <Box
-            ref={sidebarref}
             component="div"
             sx={{
               display: "flex",
@@ -137,8 +95,9 @@ export default function TaskSidebar() {
             }}
           >
             <TreeView
-              fullWidth
-              // className={classes.root}
+              aria-label="file system navigator"
+              defaultCollapseIcon={<ExpandMoreIcon />}
+              defaultExpandIcon={<ChevronRightIcon />}
               sx={{
                 height: 240,
                 flexGrow: 1,
@@ -146,59 +105,60 @@ export default function TaskSidebar() {
                 overflowY: "auto",
                 width: "100%",
               }}
+              className={classes.root}
+              expanded={expanded}
               selected={selected}
+              onNodeToggle={handleToggle}
               onNodeSelect={handleSelect}
             >
-              <TreeItem
-                // ref={clientref}
-                // onClick={handleClick}
-                nodeId={"noTask"}
-                className={classes.treeItem}
-                label={
-                  <Typography
-                    sx={{
-                      color: "black",
-                      fontSize: "1.5rem",
-                      fontWeight: "700",
-                    }}
+              {clientsList?.length > 0 &&
+                clientsList.map((client) => (
+                  <TreeItem
+                    nodeId={client._id.toString()}
+                    label={
+                      <Typography
+                        sx={{
+                          color: "#637381",
+                          fontSize: "1.5rem",
+                          fontWeight: "700",
+                        }}
+                      >
+                        {client.name}
+                      </Typography>
+                    }
+                    key={client._id}
+                    onClick={handleClick}
+                    id={client._id}
                   >
-                    No Task
-                  </Typography>
-                }
-              ></TreeItem>
-              {tasks.tasks?.map((task) => (
-                <TreeItem
-                  id={task._id}
-                  // ref={clientref}
-                  nodeId={task._id}
-                  onClick={(e) => {
-                    console.log(task._id);
-                    getTaskDetails(dispatchGetTaskDetails, task);
-                  }}
-                  className={classes.treeItem}
-                  label={
-                    // <Typography className={classes.treeItem} variant="h6">
-                    //   {client.name}
-                    // </Typography>
-                    <Typography
-                      sx={{
-                        color: "#637381",
-                        fontSize: "1.5rem",
-                        fontWeight: "700",
-                      }}
-                      data-task={task.name}
-                    >
-                      {task.name}
-                    </Typography>
-                  }
-                  // hello
-                ></TreeItem>
-              ))}
+                    {client.projects.map((project) => {
+                      return (
+                        <TreeItem
+                          id={client._id + project._id}
+                          nodeId={(project._id + client._id).toString()}
+                          key={project._id}
+                          label={
+                            <Typography
+                              sx={{
+                                color: "#2a3641",
+                                fontSize: "1.2rem",
+                                fontWeight: "700",
+                              }}
+                              data-client={client.name}
+                              data-project={project.name}
+                              onClick={handleProjectClick}
+                            >
+                              {project.name}
+                            </Typography>
+                          }
+                        />
+                      );
+                    })}
+                  </TreeItem>
+                ))}
             </TreeView>
           </Box>
         )}
 
-        {/* INPUT BOX, add validations, connect to context */}
         <Box
           sx={{
             boxSizing: "border-box",
@@ -206,57 +166,56 @@ export default function TaskSidebar() {
             "& > :not(style)": { m: 1 },
           }}
         >
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              setLoaderAddTask(true);
-              await axios
-                .post("/task", {
-                  name: newTaskValue,
-                })
-                .then((res) => {
-                  enqueueSnackbar(res.data.msg, {
-                    variant: "success",
-                  });
-                  setLoaderAddTask(false);
-                  setnewTaskValue("");
-                  getTasks(dispatchGetTask);
-                })
-                .catch((err) => {
-                  console.log(err);
-                  setLoaderAddTask(false);
-                  setnewTaskError(err.messaage);
-                  enqueueSnackbar(err.message, {
-                    variant: "info",
-                  });
-                });
-            }}
-            noValidate
-            autoComplete="off"
-            style={{ width: "100%" }}
-          >
-            <TextField
-              sx={{ width: "100%" }}
-              inputRef={inputRef}
-              onChange={(e) => setnewTaskValue(e.target.value)}
-              required
-              label="Add new Task"
-              error={newTaskError}
-            />
-            <LoadingButton
-              fullWidth
-              type="submit"
-              loading={loaderAddTask}
-              loadingPosition="end"
-              variant="contained"
-              sx={{ mt: 1 }}
+          {loginC && Role.indexOf(loginC.userData.role) <= 2 && (
+            <form
+              onSubmit={handleSubmit}
+              noValidate
+              autoComplete="off"
+              style={{ width: "100%" }}
             >
-              Add Task
-            </LoadingButton>
-          </form>
+              <TextField
+                inputRef={searchRef}
+                onChange={(e) => setnewProjectValue(e.target.value)}
+                required
+                fullWidth
+                label="Add new project"
+                error={newClientError}
+                sx={{}}
+              />
+
+              <LoadingButton
+                fullWidth
+                type="submit"
+                loading={loaderAddProject}
+                loadingPosition="end"
+                variant="contained"
+                sx={{ mt: 1 }}
+              >
+                Add Project
+              </LoadingButton>
+            </form>
+          )}
         </Box>
       </Paper>
-      <TaskMain />
+      <Header
+        clientsList={clientsList}
+        currentClient={newClientValue}
+        currentProject={newProjectValue}
+        setcurrClient={changeClient}
+        setCurrProjct={changeProject}
+      />
     </Box>
+    /* {open === true ? (
+        <Snackbars
+          sx={{ display: "none", position: "absolute", zIndex: -10000 }}
+          message={"hello"}
+          open={open}
+          setOpen={(val) => {
+            setOpen(val);
+          }}
+        />
+      ) : (
+        ""
+      )} */
   );
 }
