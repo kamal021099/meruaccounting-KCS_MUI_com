@@ -1,221 +1,342 @@
-/* eslint-disable consistent-return */
-import React, { useContext, useEffect, useState, useRef } from "react";
-import { Paper, Typography, CircularProgress } from "@mui/material";
-import { LoadingButton, TreeItem, TreeView } from "@mui/lab";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import React, { useState, useRef, useContext, useEffect } from "react";
+import {
+  Autocomplete,
+  IconButton,
+  Paper,
+  Link,
+  TextField,
+  Typography,
+  FormControlLabel,
+  Switch,
+} from "@mui/material";
 import { makeStyles } from "@mui/styles";
-import Box from "@mui/material/Box";
-import TextField from "@mui/material/TextField";
-import SearchBar from "../SearchBar";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import { Box } from "@mui/system";
+import { useSnackbar } from "notistack";
+import { TasksContext } from "src/contexts/tasksContext";
+import dayjs from "dayjs";
+import { Container } from "react-bootstrap";
+import { getFullName } from "src/_helpers/getFullName";
+import { getTaskDetails, getTasks } from "src/api/task api/tasks";
 import axios from "axios";
-//-------------------------------------------------------------------------------------------------------------------
+import Confirmation from "../Confirmation";
+
 const useStyles = makeStyles((theme) => ({
-  root: {},
+  input: {
+    color: "#000",
+    width: "50%",
+    maxWidth: "fit-content",
+    height: "30px",
+    fontSize: "30px",
+    fontWeight: "bold",
+    border: "none",
+    background: "#fff",
+    transition: "width 0.4s ease-in-out",
+    "& :focus": { width: "100%" },
+  },
 }));
+export default function TaskMain(props) {
+  const { ...others } = props;
+  // to focus edit name of client
 
-export default function Sidebar() {
+  const [taskName, setTaskName] = useState("");
+  const [ConfirmModal, setConfirmModal] = useState(false);
+  const outerref = useRef();
+  const inputRef = useRef();
+  const { enqueueSnackbar } = useSnackbar();
+
+  const { tasks, taskDetails, dispatchGetTask, dispatchGetTaskDetails } =
+    useContext(TasksContext);
+
+  const handleEditClick = (e) => {
+    inputRef.current.focus();
+  };
+
   const classes = useStyles();
-  const [taskList, setTaskList] = useState([]);
 
-  // fetch tasks
   useEffect(() => {
-    axios
-      .get(`/task`)
-      .then((result) => {
-        console.log(result);
-        setTaskList(result?.data?.data);
+    setTaskName(taskDetails.taskDetails.name);
+  }, [taskDetails]);
 
-        return result;
-      })
-      .catch((error) => {
-        console.error(error);
-        setTaskList([]);
-        return Promise.reject(error);
-      });
-  }, []);
+  const handleChange = (e, value) => {
+    console.log(value);
+    if (value) {
+      const id = value._id;
+      document.getElementById(id).scrollIntoView();
+    }
+  };
 
-  return (
+  const Labelconfig = function () {
+    return (
+      <>
+        {taskDetails.taskDetails.allEmployees.map((employee) => (
+          <FormControlLabel
+            id={`${employee._id}`}
+            sx={{ display: "block", pt: 1, fontWeight: 10 }}
+            onChange={async () => {
+              await axios
+                .patch(`/task/editEmployees`, {
+                  _id: taskDetails.taskDetails._id,
+                  employeeId: employee._id,
+                })
+                .then((res) => {
+                  enqueueSnackbar(res.data.msg, {
+                    variant: "success",
+                  });
+                })
+                .catch((err) => {
+                  console.log(err);
+                  enqueueSnackbar(err.message, {
+                    variant: "info",
+                  });
+                });
+            }}
+            control={
+              <Switch
+                defaultChecked={taskDetails.taskDetails.employees.includes(
+                  employee._id
+                )}
+              />
+            }
+            label={`${getFullName(employee.firstName, employee.lastName)}`}
+          />
+        ))}
+      </>
+    );
+  };
+
+  return taskDetails.loader ? (
     <Box
       component="div"
       sx={{
-        margin: "10px",
-        // height: "70vh",
+        width: "70%",
         flexGrow: "1",
-        display: "flex",
-        flexDirection: "row",
-        scrollbar: "auto",
+        overflowX: "hidden",
+        overflowY: "auto",
+        // margin: "10px 10px 10px 10px",
       }}
     >
       <Paper
         component="div"
         elevation={3}
         sx={{
-          overflow: "hidden",
-          height: "100%",
-          width: "28.5%",
           display: "flex",
-          flexDirection: "column",
-          // position: "relative",
+          flexGrow: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          // ml: 2,
+          overflow: "visible",
+          height: "100%",
         }}
       >
-        {/* search box */}
         <Box
-          sx={{ display: "flex", flexDirection: "row", alignItems: "center" }}
-        >
-          <SearchBar
-            handleSearch={handleSearch}
-            label="Search Project"
-            options={projectList}
-          />
-        </Box>
-        {clientDetails?.client?.loader && (
-          <Box
-            sx={{
-              display: "flex",
-              flexGrow: "1",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <CircularProgress />
-          </Box>
-        )}
-
-        {/* clients and project tree view flex container */}
-        {!clientDetails?.loader && (
-          <Box
-            component="div"
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              flexGrow: "1",
-              alignItems: "flex-start",
-              overflowY: "auto",
-            }}
-          >
-            <TreeView
-              aria-label="file system navigator"
-              defaultCollapseIcon={<ExpandMoreIcon />}
-              defaultExpandIcon={<ChevronRightIcon />}
-              sx={{
-                height: 240,
-                flexGrow: 1,
-                // maxWidth: 400,
-                overflowY: "auto",
-                width: "100%",
-              }}
-              className={classes.root}
-              expanded={expanded}
-              selected={selected}
-              onNodeToggle={handleToggle}
-              onNodeSelect={handleSelect}
-            >
-              {clientsList?.length > 0 &&
-                clientsList.map((client) => (
-                  <TreeItem
-                    nodeId={client._id.toString()}
-                    label={
-                      <Typography
-                        sx={{
-                          color: "#637381",
-                          fontSize: "1.5rem",
-                          fontWeight: "700",
-                        }}
-                      >
-                        {client.name}
-                      </Typography>
-                    }
-                    key={client._id}
-                    onClick={handleClick}
-                    id={client._id}
-                  >
-                    {client.projects.map((project) => {
-                      return (
-                        <TreeItem
-                          id={client._id + project._id}
-                          nodeId={(project._id + client._id).toString()}
-                          key={project._id}
-                          label={
-                            <Typography
-                              sx={{
-                                color: "#2a3641",
-                                fontSize: "1.2rem",
-                                fontWeight: "700",
-                              }}
-                              data-client={client.name}
-                              data-project={project.name}
-                              onClick={handleProjectClick}
-                            >
-                              {project.name}
-                            </Typography>
-                          }
-                        />
-                      );
-                    })}
-                  </TreeItem>
-                ))}
-            </TreeView>
-          </Box>
-        )}
-
-        <Box
-          sx={{
-            boxSizing: "border-box",
-            width: "95%",
-            "& > :not(style)": { m: 1 },
-          }}
-        >
-          {loginC && Role.indexOf(loginC.userData.role) <= 2 && (
-            <form
-              onSubmit={handleSubmit}
-              noValidate
-              autoComplete="off"
-              style={{ width: "100%" }}
-            >
-              <TextField
-                inputRef={searchRef}
-                onChange={(e) => setnewProjectValue(e.target.value)}
-                required
-                fullWidth
-                label="Add new project"
-                error={newClientError}
-                sx={{}}
-              />
-
-              <LoadingButton
-                fullWidth
-                type="submit"
-                loading={loaderAddProject}
-                loadingPosition="end"
-                variant="contained"
-                sx={{ mt: 1 }}
-              >
-                Add Project
-              </LoadingButton>
-            </form>
-          )}
-        </Box>
-      </Paper>
-      <Header
-        clientsList={clientsList}
-        currentClient={newClientValue}
-        currentProject={newProjectValue}
-        setcurrClient={changeClient}
-        setCurrProjct={changeProject}
-      />
-    </Box>
-    /* {open === true ? (
-        <Snackbars
-          sx={{ display: "none", position: "absolute", zIndex: -10000 }}
-          message={"hello"}
-          open={open}
-          setOpen={(val) => {
-            setOpen(val);
-          }}
+          component="img"
+          src="/svgs/client.svg"
+          sx={{ width: 100, height: 70, backgroundColor: "white" }}
         />
-      ) : (
-        ""
-      )} */
+        <Typography variant="h5">No Task Selected</Typography>
+      </Paper>
+    </Box>
+  ) : (
+    <>
+      {/* grid container 40 60 */}
+      <Box
+        ref={outerref}
+        component="div"
+        sx={{
+          width: "70%",
+          flexGrow: "1",
+          overflowX: "hidden",
+          overflowY: "auto",
+          m: 1,
+        }}
+      >
+        <Paper
+          component="div"
+          elevation={3}
+          sx={{
+            zIndex: 1,
+            p: 1,
+            position: "relative",
+          }}
+        >
+          <Box sx={{ m: 1 }}>
+            <h1 style={{ backgroundColor: "#fff" }}>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await axios
+                    .patch("/task/editName", {
+                      _id: taskDetails.taskDetails._id,
+                      name: taskName,
+                    })
+                    .then((res) => {
+                      enqueueSnackbar(res.data.msg, {
+                        variant: "success",
+                      });
+                      getTasks(dispatchGetTask);
+                    })
+                    .catch((err) => {
+                      console.log(err);
+                      enqueueSnackbar(err.message, {
+                        variant: "info",
+                      });
+                    });
+                }}
+                style={{ display: "inline" }}
+              >
+                <input
+                  ref={inputRef}
+                  onChange={(e) => setTaskName(e.target.value)}
+                  type="text"
+                  className={classes.input}
+                  value={taskName}
+                />
+              </form>
+              <div
+                style={{
+                  float: "right",
+                }}
+              >
+                <IconButton>
+                  <EditIcon onClick={handleEditClick} />
+                </IconButton>
+                <IconButton>
+                  <DeleteIcon
+                    onClick={() => {
+                      setConfirmModal(true);
+                    }}
+                  />
+                </IconButton>
+              </div>
+            </h1>
+            <Box
+              component="div"
+              sx={{
+                display: "flex",
+                flexDirection: "row",
+                justifyContent: "space-between",
+                // mb: 5,
+                pb: 2,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  // alignItems: "center",
+                }}
+              >
+                <Typography variant="h5">
+                  Created on :
+                  {dayjs(taskDetails.taskDetails.createdAt).format("DD/MM/YY")}
+                </Typography>
+                <Typography
+                  sx={{
+                    display: "flex",
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    alignContent: "center",
+                  }}
+                  variant="body1"
+                ></Typography>
+              </Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  // alignItems: "center",
+                }}
+              >
+                <Typography variant="h6">
+                  Created By : {taskDetails.taskDetails.createdBy}
+                </Typography>
+                <Typography variant="body1"></Typography>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{}}>
+            <Box
+              component="div"
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-start",
+                alignItems: "flex-start",
+                m: 1,
+              }}
+            >
+              <Box sx={{ pt: 2, width: "100%" }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
+                  }}
+                >
+                  <Typography variant="h5">Employees</Typography>
+                  <Autocomplete
+                    id="combo-box-demo"
+                    options={taskDetails.taskDetails.allEmployees}
+                    getOptionLabel={(option) =>
+                      getFullName(option.firstName, option.lastName)
+                    }
+                    sx={{ width: 300 }}
+                    renderInput={(params) => (
+                      <TextField {...params} label="Employee" />
+                    )}
+                    onChange={handleChange}
+                  />
+                </Box>
+                <Link sx={{ pl: 1, color: "#229A16" }} onClick={() => {}}>
+                  Add all
+                </Link>
+                <Link sx={{ pl: 1, color: "#FF4842" }} onClick={() => {}}>
+                  Remove all
+                </Link>
+                <Container sx={{ display: "block" }}>
+                  <Labelconfig />
+                </Container>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+      <Confirmation
+        open={ConfirmModal}
+        handleClose={() => {
+          setConfirmModal(false);
+        }}
+        onConfirm={async () => {
+          await axios
+            .delete("/task", {
+              data: {
+                _id: taskDetails.taskDetails._id,
+              },
+            })
+            .then((res) => {
+              enqueueSnackbar(res.data.msg, {
+                variant: "success",
+              });
+              getTasks(dispatchGetTask);
+            })
+            .catch((err) => {
+              console.log(err);
+              enqueueSnackbar(err.message, {
+                variant: "info",
+              });
+            });
+        }}
+        detail={{
+          type: "Task",
+          name: taskDetails?.taskDetails?.name,
+        }}
+      />
+    </>
   );
 }
